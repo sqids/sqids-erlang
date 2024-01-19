@@ -4,6 +4,7 @@
         new/0
       , new/1
       , default_options/0
+      , encode/2
     ]).
 
 -export_type([
@@ -28,9 +29,11 @@
     }.
 
 -opaque sqids() :: #{
-        alphabet   := str()
+       '?MODULE'   := ?MODULE
+      , alphabet   := str()
       , min_length := non_neg_integer()
       , blocklist  := blocklist()
+      , n          := non_neg_integer()
     }.
 
 -spec default_options() -> options().
@@ -41,7 +44,7 @@ default_options() ->
               "0123456789">>
       , min_length => 0
       , blocklist  => sqids_blocklist:get()
-    } .
+    }.
 
 -spec new() -> sqids().
 new() ->
@@ -123,18 +126,102 @@ new(Options0) when is_map(Options0)->
         (_, _, _) ->
             erlang:error(badarg, [Options0])
         end, #{}, maps:get(blocklist, Options)),
-    #{  alphabet   => shuffle(BinAlphabet)
+    #{ '?MODULE'   => ?MODULE
+      , alphabet   => shuffle(BinAlphabet)
       , min_length => maps:get(min_length, Options)
       , blocklist  => FilteredBlocklist
+      , n          => size(BinAlphabet)
     } ;
 new(Options0) ->
     erlang:error(badarg, [Options0]).
 
 
+-spec encode([non_neg_integer()], sqids()) -> str().
+encode([], #{'?MODULE':=?MODULE}) ->
+    <<>>;
+encode(Numbers, Sqids=#{'?MODULE':=?MODULE}) ->
+    encode_numbers(Numbers, 0, Sqids);
+encode(Arg1, Arg2) ->
+    erlang:error(badarg, [Arg1, Arg2]).
+
+-spec encode_numbers(
+        [non_neg_integer()], non_neg_integer(), sqids()
+    ) -> str().
+encode_numbers(Num, Inc, #{n:=N}=Sqids) when Inc > N ->
+    Reason = 'Reached max attempts to re-generate the ID',
+    erlang:error(Reason, [Num, Inc, Sqids]);
+encode_numbers(Numbers, Increment, Sqids) ->
+    This = fun(Key) -> maps:get(Key, Sqids) end,
+    {_i, Offset0} = lists:foldl(fun(V, {I, A})->
+            Next = binary:at(This(alphabet), V rem This(n)) + I + A,
+            {I+1, Next}
+        end, {0, length(Numbers)}, Numbers),
+    Offset1 = Offset0 rem This(n),
+    Offset = (Offset1 + Increment) rem This(n),
+    <<SliceLeft:Offset/binary, SliceRight/binary>> = This(alphabet),
+    Alphabet0 = <<SliceRight/binary, SliceLeft/binary>>,
+    Prefix = binary:at(Alphabet0, 0),
+    Alphabet1 = list_to_binary(lists:reverse(binary_to_list(Alphabet0))),
+    {RevCharList0, Alphabet2} = encode_input_array(
+            Numbers, [Prefix], Alphabet1
+        ),
+    Id = case This(min_length) of
+        MinLength when MinLength > length(RevCharList0) ->
+            Separator = binary:at(Alphabet2, 0),
+            RevCharList1 = [Separator|RevCharList0],
+            Id0 = list_to_binary(lists:reverse(RevCharList1)),
+            id_padding(Id0, This(min_length), Alphabet2);
+        _ ->
+            list_to_binary(lists:reverse(RevCharList0))
+    end,
+    case is_blocked_id(Id) of
+        false ->
+            Id;
+        _ ->
+            encode_numbers(Numbers, Increment+1, Sqids)
+    end.
+
+-spec encode_input_array(
+        [non_neg_integer(), ...], [non_neg_integer(), ...], str()
+    ) -> {[char_(), ...], str()}.
+encode_input_array([Num], Id0, Alphabet) ->
+    <<_:1/binary, AlphabetWithoutSeparator/binary>> = Alphabet,
+    Id1 = [to_id(Num, AlphabetWithoutSeparator)|Id0],
+    {Id1, Alphabet};
+encode_input_array([Num|Numbers], Id0, Alphabet) ->
+    <<Separator:1/binary, AlphabetWithoutSeparator/binary>> = Alphabet,
+    Id1 = [to_id(Num, AlphabetWithoutSeparator)|Id0],
+    Id2 = [Separator|Id1],
+    encode_input_array(Numbers, Id2, shuffle(Alphabet)).
+
+id_padding(Id0, MinLength, Alphabet0) when MinLength - size(Id0) > 0 ->
+    Alphabet = shuffle(Alphabet0),
+    Size = min(MinLength-size(Id0), size(Alphabet)),
+    <<Padding:Size/binary, _/binary>> = Alphabet,
+    Id = <<Id0/binary, Padding/binary>>,
+    id_padding(Id, MinLength, Alphabet);
+id_padding(Id, _MinLength, _Alphabet) ->
+    Id.
+
 -spec shuffle(str()) -> str().
 shuffle(Alphabet) ->
     % TODO
     Alphabet.
+
+-spec to_id(non_neg_integer(), str()) -> char_().
+to_id(_Num, Alphabet) ->
+    % TODO
+    binary:at(Alphabet, 0).
+
+-spec to_number(str(), str()) -> non_neg_integer().
+to_number(_, _) ->
+    % TODO
+    0.
+
+-spec is_blocked_id(str()) -> boolean().
+is_blocked_id(_) ->
+    % TODO
+    false.
 
 -spec str_to_char_set(str()) -> sets:set(char_()).
 str_to_char_set(Str) ->
