@@ -4,7 +4,7 @@
         get/0
     ]).
 
--export_types([
+-export_type([
         blocklist/0
     ]).
 
