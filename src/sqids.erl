@@ -140,6 +140,12 @@ new(Options0) ->
 encode([], #{'?MODULE':=?MODULE}) ->
     <<>>;
 encode(Numbers, Sqids=#{'?MODULE':=?MODULE}) ->
+    lists:foreach(fun
+        (Num) when is_integer(Num) andalso Num >= 0 ->
+            ok;
+        (_) ->
+            erlang:error(badarg, [Numbers, Sqids])
+        end, Numbers),
     encode_numbers(Numbers, 0, Sqids);
 encode(Arg1, Arg2) ->
     erlang:error(badarg, [Arg1, Arg2]).
