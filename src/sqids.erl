@@ -48,6 +48,17 @@ new() ->
     new(#{}).
 
 -spec new(options()) -> sqids().
+new(#{blocklist:=Blocklist}=Opts) when not is_map(Blocklist) ->
+    % Erlang sets has version 1 and 2.
+    % Type sqids_blocklist:blocklist() is version 2.
+    % This converts version 1 to version 2.
+    SetVer2 = case sets:is_set(Blocklist) of
+        true ->
+            sets:from_list(sets:to_list(Blocklist), [{version, 2}]);
+        _ ->
+            erlang:error(badarg, [Opts])
+    end,
+    new(Opts#{blocklist:=SetVer2});
 new(Options0) when is_map(Options0)->
     Options = maps:merge(default_options(), Options0),
     case Options of

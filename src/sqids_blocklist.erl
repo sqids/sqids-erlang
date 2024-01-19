@@ -8,7 +8,7 @@
         blocklist/0
     ]).
 
--type blocklist() :: sets:set(unicode:latin1_binary()).
+-type blocklist() :: maps:map(unicode:latin1_binary(), nil()).
 
 -spec get() -> blocklist().
 get() ->
