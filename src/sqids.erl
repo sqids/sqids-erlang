@@ -66,18 +66,20 @@ new(Options0) when is_map(Options0)->
             erlang:error(badarg, [Options0])
     end,
     BinAlphabet = maps:get(alphabet, Options),
-    ListAlphabet = unicode:characters_to_list(BinAlphabet),
-    case {size(BinAlphabet), length(ListAlphabet)} of
-        {Size, Size} when Size < 3 ->
+    ListAlphabet = binary_to_list(BinAlphabet),
+    Is7Bit = unicode:bin_is_7bit(BinAlphabet),
+    case {size(BinAlphabet), Is7Bit} of
+        {Size, true} when Size < 3 ->
             Reason0 = 'Alphabet length must be at least 3',
             erlang:error(Reason0, [Options0]);
-        {Size, Size} ->
+        {_Size, true} ->
             ok;
         _ ->
             Reason0 = 'Alphabet cannot contain multibyte characters',
             erlang:error(Reason0, [Options0])
     end,
-    SetAlphabet = sets:from_list(ListAlphabet, [{version, 2}]),
+    SetsOpt = [{version, 2}],
+    SetAlphabet = sets:from_list(ListAlphabet, SetsOpt),
     case {size(BinAlphabet), sets:size(SetAlphabet)} of
         {SetSize, SetSize} ->
             ok;
@@ -109,10 +111,13 @@ new(Options0) when is_map(Options0)->
         (_) ->
             false
         end, maps:get(blocklist, Options)),
+    UniqueFilteredBlocklist = sets:to_list(
+            sets:from_list(FilteredBlocklist, SetsOpt)
+        ),
     #{ '?MODULE'   => ?MODULE
       , alphabet   => shuffle(BinAlphabet)
       , min_length => maps:get(min_length, Options)
-      , blocklist  => FilteredBlocklist
+      , blocklist  => UniqueFilteredBlocklist
       , n          => size(BinAlphabet)
     } ;
 new(Options0) ->
@@ -326,7 +331,7 @@ is_blocked_id(Id0, Blocklist) ->
 is_blocked_id_(Word, Id) when size(Word) =< 3 orelse size(Id) =< 3 ->
     (Word =:= Id);
 is_blocked_id_(Word, Id) ->
-    case re:run(Id, <<"\\d">>) of
+    case re:run(Word, <<"\\d">>) of
         nomatch ->
             case binary:match(Id, Word) of
                 nomatch -> false;
