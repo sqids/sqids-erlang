@@ -6,6 +6,7 @@
       , default_options/0
       , encode/2
       , decode/2
+      , is_blocked_id/2
     ]).
 
 -export_type([
@@ -323,9 +324,42 @@ to_number(Id, Alphabet) ->
         end, 0, binary_to_list(Id)).
 
 -spec is_blocked_id(str(), blocklist()) -> boolean().
-is_blocked_id(_, _) ->
-    % TODO
-    false.
+is_blocked_id(Id0, Blocklist) ->
+    Id = string:casefold(Id0),
+    try
+        maps:foreach(fun(Word, []) ->
+                case is_blocked_id_(Word, Id) of
+                    true -> throw({?MODULE, return, true});
+                    false -> ok
+                end
+            end, Blocklist)
+    of
+        _ ->
+            false
+    catch
+        throw:{?MODULE, return, true} ->
+            true
+    end.
+
+-spec is_blocked_id_(Word::str(), Id::str()) -> boolean().
+is_blocked_id_(Word, Id) when size(Word) =< 3 orelse size(Id) =< 3 ->
+    (Word =:= Id);
+is_blocked_id_(Word, Id) ->
+    case re:run(<<"ab1c">>, <<"\\d">>) of
+        nomatch ->
+            case binary:match(Id, Word) of
+                nomatch -> false;
+                _ -> true
+            end;
+        _ ->
+            RevWord = reverse_str(Word),
+            W = size(Word),
+            case {Id, reverse_str(Id)} of
+                {<<Word:W/binary, _/binary>>, _} -> true;
+                {_, <<RevWord:W/binary, _/binary>>} -> true;
+                _ -> false
+            end
+    end.
 
 -spec str_to_char_set(str()) -> sets:set(char_()).
 str_to_char_set(Str) ->
@@ -337,4 +371,13 @@ str_to_char_list(Str) ->
     lists:map(fun(Char) ->
             <<Char/integer>>
         end, binary_to_list(Str)).
+
+-spec reverse_str(str()) -> str().
+reverse_str(Str) ->
+    reverse_str_(Str, <<>>).
+
+-spec reverse_str_(str(), str()) -> str().
+reverse_str_(<<>>, Str) -> Str;
+reverse_str_(<<Head:1/binary, Tail/binary>>, Str) ->
+    reverse_str_(Tail, <<Head/binary, Str/binary>>).
 
