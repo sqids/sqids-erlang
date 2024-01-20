@@ -5,6 +5,7 @@
       , new/1
       , default_options/0
       , encode/2
+      , decode/2
     ]).
 
 -export_type([
@@ -209,6 +210,54 @@ id_padding(Id0, MinLength, Alphabet0) when MinLength - size(Id0) > 0 ->
 id_padding(Id, _MinLength, _Alphabet) ->
     Id.
 
+-spec decode(str(), sqids()) -> [non_neg_integer()].
+decode(<<>>, #{'?MODULE':=?MODULE}) ->
+    [];
+decode(Id, Sqids=#{'?MODULE':=?MODULE}) when is_binary(Id) ->
+    try
+        decode_(Id, Sqids)
+    of
+        Ret -> Ret
+    catch
+        {?MODULE, return, Ret} -> Ret
+    end;
+decode(Arg1, Arg2) ->
+    erlang:error(badarg, [Arg1, Arg2]).
+
+decode_(Id0, Sqids) ->
+    This = fun(Key) -> maps:get(Key, Sqids) end,
+    lists:foreach(fun(C) ->
+            case sets:is_element(C, str_to_char_set(This(alphabet))) of
+                true -> ok;
+                _ -> throw({?MODULE, return, []})
+            end
+        end, str_to_char_list(Id0)),
+    <<Prefix:1/binary, Id1/binary>> = Id0,
+    {Offset, _} = binary:match(This(alphabet), Prefix),
+    <<SliceLeft:Offset/binary, SliceRight/binary>> = This(alphabet),
+    Alphabet0 = <<SliceRight/binary, SliceLeft/binary>>,
+    Alphabet1 = list_to_binary(lists:reverse(binary_to_list(Alphabet0))),
+    decode_([Id1], Alphabet1, []).
+
+decode_([], _, Ret) ->
+    lists:reverse(Ret);
+decode_([Id0], Alphabet0, Ret0) ->
+    <<Separator:1/binary, AlphabetWithoutSeparator/binary>> = Alphabet0,
+    Chunks = binary:split(Id0, Separator),
+    case Chunks of
+        [<<>>|_] ->
+            lists:reverse(Ret0);
+        [Chunk|Id1] ->
+            Ret1 = [to_number(Chunk, AlphabetWithoutSeparator)|Ret0],
+            Alphabet1 = case length(Chunks) of
+                ChunksLength when ChunksLength > 1 ->
+                    shuffle(Alphabet0);
+                _ ->
+                    Alphabet0
+            end,
+            decode_(Id1, Alphabet1, Ret1)
+    end.
+
 -spec shuffle(str()) -> str().
 shuffle(Alphabet) ->
     % TODO
@@ -222,7 +271,7 @@ to_id(_Num, Alphabet) ->
 -spec to_number(str(), str()) -> non_neg_integer().
 to_number(_, _) ->
     % TODO
-    0.
+    3.
 
 -spec is_blocked_id(str()) -> boolean().
 is_blocked_id(_) ->
