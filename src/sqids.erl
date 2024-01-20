@@ -6,7 +6,6 @@
       , default_options/0
       , encode/2
       , decode/2
-      , is_blocked_id/2
     ]).
 
 -export_type([
@@ -22,7 +21,7 @@
 
 -type char_() :: <<_:8>>.
 
--type blocklist() :: sets:set(str()).
+-type blocklist() :: lists:list(str()).
 
 -type options() :: #{
         alphabet   => str()
@@ -53,17 +52,6 @@ new() ->
     new(#{}).
 
 -spec new(options()) -> sqids().
-new(#{blocklist:=Blocklist}=Opts) when not is_map(Blocklist) ->
-    % Erlang sets has version 1 and 2.
-    % Type sqids_blocklist:blocklist() is version 2.
-    % This converts version 1 to version 2.
-    SetVer2 = case sets:is_set(Blocklist) of
-        true ->
-            sets:from_list(sets:to_list(Blocklist), [{version, 2}]);
-        _ ->
-            erlang:error(badarg, [Opts])
-    end,
-    new(Opts#{blocklist:=SetVer2});
 new(Options0) when is_map(Options0)->
     Options = maps:merge(default_options(), Options0),
     case Options of
@@ -73,12 +61,7 @@ new(Options0) when is_map(Options0)->
         } when is_binary(Alphabet)
              , is_integer(MinLength)
              , MinLength >= 0 % no upper limit.
-        ->
-            case {sets:is_set(Blocklist), is_map(Blocklist)} of
-                {true, true} -> ok;
-                _ ->
-                    erlang:error(badarg, [Options0])
-            end;
+             , is_list(Blocklist) -> ok;
         _ ->
             erlang:error(badarg, [Options0])
     end,
@@ -104,8 +87,8 @@ new(Options0) when is_map(Options0)->
     end,
     AlphabetLowercased = string:casefold(BinAlphabet),
     AlphabetCharSet = str_to_char_set(AlphabetLowercased),
-    FilteredBlocklist = maps:fold(fun
-        (Word, [], Acc) when size(Word) >= 3->
+    FilteredBlocklist = lists:filtermap(fun
+        (Word) when size(Word) >= 3->
             WordLowercased = string:casefold(Word),
             WordChars = str_to_char_list(WordLowercased),
             try
@@ -118,16 +101,14 @@ new(Options0) when is_map(Options0)->
                     end, WordChars)
             of
                 ok ->
-                    Acc#{WordLowercased => []}
+                    {true, WordLowercased}
             catch
                 throw:{?MODULE, break} ->
-                    Acc
+                    false
             end;
-        (_, [], Acc) ->
-            Acc;
-        (_, _, _) ->
-            erlang:error(badarg, [Options0])
-        end, #{}, maps:get(blocklist, Options)),
+        (_) ->
+            false
+        end, maps:get(blocklist, Options)),
     #{ '?MODULE'   => ?MODULE
       , alphabet   => shuffle(BinAlphabet)
       , min_length => maps:get(min_length, Options)
@@ -327,7 +308,7 @@ to_number(Id, Alphabet) ->
 is_blocked_id(Id0, Blocklist) ->
     Id = string:casefold(Id0),
     try
-        maps:foreach(fun(Word, []) ->
+        lists:foreach(fun(Word) ->
                 case is_blocked_id_(Word, Id) of
                     true -> throw({?MODULE, return, true});
                     false -> ok
@@ -345,7 +326,7 @@ is_blocked_id(Id0, Blocklist) ->
 is_blocked_id_(Word, Id) when size(Word) =< 3 orelse size(Id) =< 3 ->
     (Word =:= Id);
 is_blocked_id_(Word, Id) ->
-    case re:run(<<"ab1c">>, <<"\\d">>) of
+    case re:run(Id, <<"\\d">>) of
         nomatch ->
             case binary:match(Id, Word) of
                 nomatch -> false;
