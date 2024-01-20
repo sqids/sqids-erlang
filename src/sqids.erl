@@ -264,7 +264,44 @@ decode_([Id0], Alphabet0, Ret0) ->
 -spec shuffle(str()) -> str().
 shuffle(Alphabet) ->
     % TODO
-    Alphabet.
+    shuffle_(0, size(Alphabet)-1, Alphabet).
+
+-spec shuffle_(non_neg_integer(), non_neg_integer(), str()) -> str().
+shuffle_(_, 0, Alphabet) ->
+    Alphabet;
+shuffle_(I, J, Alphabet) ->
+    N = size(Alphabet),
+    R = (I * J + binary:at(Alphabet, I) + binary:at(Alphabet, J)) rem N,
+    shuffle_(I+1, J-1, swap(I, R, Alphabet)).
+
+-spec swap(non_neg_integer(), non_neg_integer(), str()) -> str().
+swap(X, X, BinaryString) ->
+    BinaryString;
+swap(Y, X, BinaryString) when Y > X ->
+    swap(X, Y, BinaryString);
+swap(X, Y, BinaryString) when (
+        is_integer(X) andalso X >= 0 andalso
+        is_integer(Y) andalso Y >= 0 andalso
+        is_binary(BinaryString)
+    ) ->
+    PrefixSize   = X,
+    LeftSize     = 1,
+    InterfixSize = Y - X -1,
+    RightSize    = 1,
+    <<  Prefix:PrefixSize/binary
+      , Left:LeftSize/binary
+      , Interfix:InterfixSize/binary
+      , Right:RightSize/binary
+      , Suffix/binary
+    >> = BinaryString,
+    <<  Prefix/binary
+      , Right/binary
+      , Interfix/binary
+      , Left/binary
+      , Suffix/binary
+    >>;
+swap(Arg1, Arg2, Arg3) ->
+    erlang:error(badarg, [Arg1, Arg2, Arg3]).
 
 -spec to_id(non_neg_integer(), str()) -> char_().
 to_id(_Num, Alphabet) ->
