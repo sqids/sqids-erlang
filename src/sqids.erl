@@ -181,7 +181,7 @@ encode_numbers(Numbers, Increment, Sqids) ->
         _ ->
             list_to_binary(lists:reverse(RevCharList0))
     end,
-    case is_blocked_id(Id) of
+    case is_blocked_id(Id, This(blocklist)) of
         false ->
             Id;
         _ ->
@@ -311,19 +311,19 @@ to_id_(0, _, Id) when  size(Id) > 0 ->
     Id;
 to_id_(Num0, Alphabet, Id0) ->
     Char = binary:at(Alphabet, Num0 rem size(Alphabet)),
-    Id1 = <<Char, Id0/binary>>,
+    Id1 = <<Char/integer, Id0/binary>>,
     Num1 = Num0 div size(Alphabet),
     to_id_(Num1, Alphabet, Id1).
 
 -spec to_number(str(), str()) -> non_neg_integer().
 to_number(Id, Alphabet) ->
     lists:foldl(fun(V, A) ->
-            {Index, _} = binary:match(Alphabet, <<V>>),
+            {Index, _} = binary:match(Alphabet, <<V/integer>>),
             A * size(Alphabet) + Index
         end, 0, binary_to_list(Id)).
 
--spec is_blocked_id(str()) -> boolean().
-is_blocked_id(_) ->
+-spec is_blocked_id(str(), blocklist()) -> boolean().
+is_blocked_id(_, _) ->
     % TODO
     false.
 
