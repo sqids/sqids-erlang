@@ -316,9 +316,11 @@ to_id_(Num0, Alphabet, Id0) ->
     to_id_(Num1, Alphabet, Id1).
 
 -spec to_number(str(), str()) -> non_neg_integer().
-to_number(_, _) ->
-    % TODO
-    3.
+to_number(Id, Alphabet) ->
+    lists:foldl(fun(V, A) ->
+            {Index, _} = binary:match(Alphabet, <<V>>),
+            A * size(Alphabet) + Index
+        end, 0, binary_to_list(Id)).
 
 -spec is_blocked_id(str()) -> boolean().
 is_blocked_id(_) ->
