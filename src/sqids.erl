@@ -263,7 +263,6 @@ decode_([Id0], Alphabet0, Ret0) ->
 
 -spec shuffle(str()) -> str().
 shuffle(Alphabet) ->
-    % TODO
     shuffle_(0, size(Alphabet)-1, Alphabet).
 
 -spec shuffle_(non_neg_integer(), non_neg_integer(), str()) -> str().
@@ -304,9 +303,17 @@ swap(Arg1, Arg2, Arg3) ->
     erlang:error(badarg, [Arg1, Arg2, Arg3]).
 
 -spec to_id(non_neg_integer(), str()) -> char_().
-to_id(_Num, Alphabet) ->
-    % TODO
-    binary:at(Alphabet, 0).
+to_id(Num, Alphabet) ->
+    to_id_(Num, Alphabet, <<>>).
+
+-spec to_id_(non_neg_integer(), str(), str()) -> str().
+to_id_(0, _, Id) when  size(Id) > 0 ->
+    Id;
+to_id_(Num0, Alphabet, Id0) ->
+    Char = binary:at(Alphabet, Num0 rem size(Alphabet)),
+    Id1 = <<Char, Id0/binary>>,
+    Num1 = Num0 div size(Alphabet),
+    to_id_(Num1, Alphabet, Id1).
 
 -spec to_number(str(), str()) -> non_neg_integer().
 to_number(_, _) ->
