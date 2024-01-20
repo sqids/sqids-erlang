@@ -224,6 +224,7 @@ decode(Id, Sqids=#{'?MODULE':=?MODULE}) when is_binary(Id) ->
 decode(Arg1, Arg2) ->
     erlang:error(badarg, [Arg1, Arg2]).
 
+-spec decode_(str(), sqids()) -> [non_neg_integer()].
 decode_(Id0, Sqids) ->
     This = fun(Key) -> maps:get(Key, Sqids) end,
     lists:foreach(fun(C) ->
@@ -239,6 +240,8 @@ decode_(Id0, Sqids) ->
     Alphabet1 = list_to_binary(lists:reverse(binary_to_list(Alphabet0))),
     decode_([Id1], Alphabet1, []).
 
+-spec decode_(MaybeId, str(), sqids()) -> [non_neg_integer()]
+    when MaybeId :: nil() | nonempty_list(str()). % [] or [<<...>>]
 decode_([], _, Ret) ->
     lists:reverse(Ret);
 decode_([Id0], Alphabet0, Ret0) ->
