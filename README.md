@@ -28,7 +28,6 @@ Not good for:
 ## 🚀 Getting started
 
 Add sqids as a dependency to rebar.config
-<!-- FIXME: 0.1.0 is unreleased. -->
 ```erlang
 {deps,
     [

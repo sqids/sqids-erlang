@@ -1,5 +1,5 @@
 # CHANGELOG
 
-## UNRELEASED 0.1.0
+## 0.1.0
 ### New Feature
 - Initial implementation
