@@ -1,4 +1,4 @@
-name: Erlang/OTP 24 CI
+name: Erlang/OTP 25 CI
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: erlang:24
+      image: erlang:25
 
     steps:
     - uses: actions/checkout@v3
